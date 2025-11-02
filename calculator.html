@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ankit Kumar | Calculator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+    }
+
+    .calculator {
+      background: #2c2f3a;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      width: 320px;
+    }
+
+    .display {
+      background: #1e1e2f;
+      color: #00bcd4;
+      font-size: 2.2rem;
+      text-align: right;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      overflow-x: auto;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    button {
+      background: #3b3f52;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 18px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #00bcd4;
+      transform: scale(1.05);
+    }
+
+    .equal {
+      background: #00bcd4;
+      color: white;
+      grid-column: span 2;
+    }
+
+    .operator {
+      color: #00bcd4;
+    }
+
+    @media (max-width: 400px) {
+      .calculator {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="calculator">
+    <div id="display" class="display">0</div>
+    <div class="buttons">
+      <button onclick="clearDisplay()">C</button>
+      <button onclick="deleteLast()">⌫</button>
+      <button onclick="appendOperator('%')">%</button>
+      <button class="operator" onclick="appendOperator('/')">÷</button>
+
+      <button onclick="appendNumber('7')">7</button>
+      <button onclick="appendNumber('8')">8</button>
+      <button onclick="appendNumber('9')">9</button>
+      <button class="operator" onclick="appendOperator('*')">×</button>
+
+      <button onclick="appendNumber('4')">4</button>
+      <button onclick="appendNumber('5')">5</button>
+      <button onclick="appendNumber('6')">6</button>
+      <button class="operator" onclick="appendOperator('-')">−</button>
+
+      <button onclick="appendNumber('1')">1</button>
+      <button onclick="appendNumber('2')">2</button>
+      <button onclick="appendNumber('3')">3</button>
+      <button class="operator" onclick="appendOperator('+')">+</button>
+
+      <button onclick="appendNumber('0')">0</button>
+      <button onclick="appendNumber('.')">.</button>
+      <button class="equal" onclick="calculate()">=</button>
+    </div>
+  </div>
+
+  <script>
+    let display = document.getElementById('display');
+    let currentInput = '0';
+
+    function updateDisplay() {
+      display.textContent = currentInput;
+    }
+
+    function clearDisplay() {
+      currentInput = '0';
+      updateDisplay();
+    }
+
+    function deleteLast() {
+      currentInput = currentInput.slice(0, -1);
+      if (currentInput === '') currentInput = '0';
+      updateDisplay();
+    }
+
+    function appendNumber(num) {
+      if (currentInput === '0') {
+        currentInput = num;
+      } else {
+        currentInput += num;
+      }
+      updateDisplay();
+    }
+
+    function appendOperator(op) {
+      if (/[-+*/%]$/.test(currentInput)) {
+        currentInput = currentInput.slice(0, -1) + op;
+      } else {
+        currentInput += op;
+      }
+      updateDisplay();
+    }
+
+    function calculate() {
+      try {
+        let result = eval(currentInput);
+        if (result === Infinity || isNaN(result)) {
+          currentInput = 'Error';
+        } else {
+          currentInput = result.toString();
+        }
+      } catch {
+        currentInput = 'Error';
+      }
+      updateDisplay();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Ankit's Car Racer</title>
+  <style>
+    :root{
+      --bg:#0b1220; --road:#111827; --line:#e5e7eb33; --accent:#06b6d4; --danger:#ef4444;
+      --panel: rgba(255,255,255,0.03);
+      --glass: rgba(255,255,255,0.04);
+      --text:#e6eef8;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,Arial;background:linear-gradient(180deg,#021124 0%, #071427 100%);color:var(--text)}
+
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .game-area{width:100%;max-width:1100px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:14px;padding:14px;display:grid;grid-template-columns:640px 1fr;gap:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+
+    /* Road / Canvas card */
+    .card{background:var(--road);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center}
+    canvas{display:block;border-radius:8px;background:linear-gradient(180deg,#22272f,#0b1220);width:100%;height:auto;max-width:620px;box-shadow:inset 0 8px 30px rgba(0,0,0,0.6)}
+    .hud{width:100%;display:flex;justify-content:space-between;margin-top:10px;color:var(--text);font-weight:600}
+
+    /* Right panel */
+    .panel{padding:12px;display:flex;flex-direction:column;gap:12px}
+    .stat{background:var(--panel);padding:12px;border-radius:10px}
+    h1{margin:0;font-size:18px;color:var(--accent)}
+    p{margin:0;color:#9aa6b2}
+
+    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    button{background:var(--glass);border:none;color:var(--accent);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
+    button:hover{transform:translateY(-3px)}
+
+    .big{font-size:1.6rem}
+    .small{font-size:0.9rem;color:#94a3b8}
+
+    .dpad{display:none;margin-top:6px;gap:8px}
+    .dpad button{width:60px;height:48px;border-radius:8px}
+
+    .legend{display:flex;gap:8px;align-items:center}
+    .dot{width:12px;height:12px;border-radius:50%}
+
+    @media (max-width:1000px){
+      .game-area{grid-template-columns:1fr}
+      .dpad{display:grid;grid-template-areas:"up up up" "left . right" "down down down";grid-template-columns:repeat(3,1fr)}
+      .panel{order:2}
+      canvas{max-width:100%;height:480px}
+    }
+
+    footer{color:#94a3b8;font-size:13px;text-align:center;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="game-area">
+      <div class="card">
+        <canvas id="road" width="640" height="960"></canvas>
+        <div class="hud">
+          <div>Score: <span id="score">0</span></div>
+          <div>Speed: <span id="spd">1</span></div>
+          <div>High: <span id="high">0</span></div>
+        </div>
+        <div class="dpad" id="dpad">
+          <button data-dir="up">▲</button>
+          <button data-dir="left">◀</button>
+          <div></div>
+          <button data-dir="right">▶</button>
+          <button data-dir="down">▼</button>
+        </div>
+        <footer>Controls: ← → or A / D. Tap on mobile sides to steer. Avoid traffic and collect coins.</footer>
+      </div>
+
+      <div class="panel">
+        <div class="stat">
+          <h1>Ankit's Car Racer</h1>
+          <p class="small">A fast, responsive lane-based car racing survival game built with HTML5 canvas and vanilla JS.</p>
+        </div>
+
+        <div class="stat">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="small">Player</div>
+              <div class="big">You</div>
+            </div>
+            <div>
+              <div class="small">Status</div>
+              <div id="status" class="big">Ready</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="controls">
+            <button id="start">Start</button>
+            <button id="pause">Pause</button>
+            <button id="restart">Restart</button>
+            <button id="mute">Mute</button>
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="small">Settings</div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <label class="small">Difficulty</label>
+            <select id="difficulty">
+              <option value="1">Easy</option>
+              <option value="1.4" selected>Normal</option>
+              <option value="1.8">Hard</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="small">Legend</div>
+          <div style="display:flex;gap:10px;margin-top:8px;align-items:center">
+            <div class="legend"><div class="dot" style="background:gold"></div> Coin</div>
+            <div class="legend"><div class="dot" style="background:#06b6d4"></div> Player</div>
+            <div class="legend"><div class="dot" style="background:#ef4444"></div> Obstacle</div>
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="small">Instructions</div>
+          <p style="margin-top:8px">Drive in lanes, dodge incoming cars, collect coins to increase score. Speed increases with time. Game uses localStorage for high score.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Canvas setup ---
+    const canvas = document.getElementById('road');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width; const H = canvas.height;
+
+    // UI refs
+    const scoreEl = document.getElementById('score');
+    const spdEl = document.getElementById('spd');
+    const highEl = document.getElementById('high');
+    const statusEl = document.getElementById('status');
+    const startBtn = document.getElementById('start');
+    const pauseBtn = document.getElementById('pause');
+    const restartBtn = document.getElementById('restart');
+    const muteBtn = document.getElementById('mute');
+    const diffSel = document.getElementById('difficulty');
+
+    // Game state
+    let running = false;
+    let paused = false;
+    let lastTime=0;
+    let spawnTimer = 0;
+    let score = 0;
+    let speed = 1; // world speed multiplier
+    let difficulty = Number(diffSel.value);
+    let high = Number(localStorage.getItem('car_high')||0);
+    let muted = false;
+    highEl.textContent = high;
+
+    // Lanes
+    const lanes = 3;
+    const laneWidth = W * 0.5 / lanes; // road uses center 50%
+    const roadX = W*0.25;
+    const roadW = W*0.5;
+
+    // Player
+    const player = {
+      lane: 1, // 0,1,2
+      x: 0, y: H - 140,
+      w: laneWidth*0.6, h: 110,
+      color: '#06b6d4',
+      alive: true
+    };
+
+    function playerX(l){ return roadX + l*laneWidth + (laneWidth - player.w)/2; }
+    player.x = playerX(player.lane);
+
+    // Obstacles and coins
+    const obstacles = [];
+    const coins = [];
+
+    function rand(min,max){ return Math.random()*(max-min)+min; }
+
+    // Sounds (optional simple beep)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function beep(freq,duration=0.08,vol=0.05){ if(muted) return; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value=vol; o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+duration); }
+
+    // Spawn obstacle
+    function spawnObstacle(){
+      const lane = Math.floor(rand(0,lanes));
+      const w = player.w * (rand(0.9,1.2));
+      const h = player.h * (rand(0.8,1.2));
+      obstacles.push({lane,x:playerX(lane),y:-h-20,w,h,color:'#ef4444',speed: rand(1.6,2.4)});
+    }
+    function spawnCoin(){
+      const lane = Math.floor(rand(0,lanes));
+      const size = 22;
+      coins.push({lane,x:playerX(lane) + (laneWidth - size)/2 + (player.w-size)/2,y:-60,size,vy:1.6});
+    }
+
+    // Input
+    window.addEventListener('keydown',e=>{
+      if(e.key==='ArrowLeft' || e.key.toLowerCase()==='a') moveLeft();
+      if(e.key==='ArrowRight' || e.key.toLowerCase()==='d') moveRight();
+      if(e.key===' ') togglePause();
+    });
+
+    // Mobile touch: tap left/right halves
+    canvas.addEventListener('touchstart',e=>{
+      const t = e.touches[0]; const rect=canvas.getBoundingClientRect(); const cx = t.clientX - rect.left;
+      if(cx < rect.width/2) moveLeft(); else moveRight();
+    });
+
+    // On-screen dpad
+    document.getElementById('dpad').addEventListener('click',e=>{
+      const b = e.target.closest('button'); if(!b) return; const dir=b.dataset.dir; if(dir==='left') moveLeft(); if(dir==='right') moveRight();
+    });
+
+    function moveLeft(){ if(!player.alive) return; player.lane = Math.max(0, player.lane-1); player.x = playerX(player.lane); beep(400,0.05,0.03); }
+    function moveRight(){ if(!player.alive) return; player.lane = Math.min(lanes-1, player.lane+1); player.x = playerX(player.lane); beep(600,0.05,0.03); }
+
+    // Buttons
+    startBtn.addEventListener('click', ()=>{ if(!running) startGame(); else if(paused) togglePause(); });
+    pauseBtn.addEventListener('click', togglePause);
+    restartBtn.addEventListener('click', ()=>{ resetGame(); startGame(); });
+    muteBtn.addEventListener('click', ()=>{ muted = !muted; muteBtn.textContent = muted? 'Unmute':'Mute'; });
+    diffSel.addEventListener('change', ()=>{ difficulty = Number(diffSel.value); });
+
+    function togglePause(){ if(!running) return; paused = !paused; statusEl.textContent = paused? 'Paused':'Running'; if(paused) beep(200,0.06,0.02); else beep(800,0.04,0.02); }
+
+    function resetGame(){ obstacles.length=0; coins.length=0; score=0; speed=1; player.lane=1; player.x=playerX(player.lane); player.alive=true; spawnTimer=0; scoreEl.textContent=score; spdEl.textContent = speed.toFixed(2); statusEl.textContent='Ready'; }
+
+    function startGame(){ if(!running){ running=true; paused=false; lastTime=0; resetGame(); statusEl.textContent='Running'; requestAnimationFrame(loop); } }
+
+    function endGame(){ running=false; player.alive=false; statusEl.textContent='Crashed'; if(score>high){ high=score; localStorage.setItem('car_high', high); highEl.textContent = high; beep(120,0.2,0.08);} else { beep(160,0.15,0.05); } alert('Game Over! Score: '+score); }
+
+    // Collision AABB
+    function coll(a,b){ return !(a.x + a.w < b.x || a.x > b.x + b.w || a.y + a.h < b.y || a.y > b.y + b.h); }
+
+    // Main loop
+    function loop(ts){
+      if(!running) return; if(paused){ lastTime = ts; requestAnimationFrame(loop); return; }
+      const dt = (ts - lastTime) / 1000; lastTime = ts;
+      // increase speed gradually
+      speed += dt * 0.02 * difficulty; spdEl.textContent = speed.toFixed(2);
+
+      // spawn logic
+      spawnTimer += dt * speed * difficulty;
+      if(spawnTimer > 0.9){ // spawn obstacle
+        spawnTimer = 0;
+        if(Math.random() < 0.75) spawnObstacle();
+        if(Math.random() < 0.45) spawnCoin();
+      }
+
+      // update obstacles
+      for(let i=obstacles.length-1;i>=0;i--){
+        const o = obstacles[i]; o.y += (o.speed * 120) * dt * speed;
+        o.x = playerX(o.lane) + (laneWidth - o.w)/2; // keep aligned in lane
+        // collision with player
+        if(coll({x:player.x,y:player.y,w:player.w,h:player.h}, {x:o.x,y:o.y,w:o.w,h:o.h})){ endGame(); }
+        if(o.y > H + 200) obstacles.splice(i,1);
+      }
+
+      // update coins
+      for(let i=coins.length-1;i>=0;i--){
+        const c = coins[i]; c.y += 140 * dt * speed;
+        c.x = playerX(c.lane) + (laneWidth - c.size)/2 + (player.w-c.size)/2;
+        // collision with player
+        if(coll({x:player.x,y:player.y,w:player.w,h:player.h}, {x:c.x,y:c.y,w:c.size,h:c.size})){ score += 5; scoreEl.textContent = score; coins.splice(i,1); beep(1200,0.06,0.04); continue; }
+        if(c.y > H + 100) coins.splice(i,1);
+      }
+
+      // increase score slowly
+      score += Math.floor(dt * 10 * speed * difficulty);
+      scoreEl.textContent = score;
+
+      // background (road) animation
+      render();
+
+      // loop
+      requestAnimationFrame(loop);
+    }
+
+    // Draw road and objects
+    function render(){
+      // clear
+      ctx.clearRect(0,0,W,H);
+
+      // background sky gradient already in CSS; draw road area
+      // Road background
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(roadX, 0, roadW, H);
+
+      // side grass
+      ctx.fillStyle = '#071427';
+      ctx.fillRect(0,0,roadX,H);
+      ctx.fillRect(roadX+roadW,0,W-(roadX+roadW),H);
+
+      // lane markers
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 4;
+      for(let i=1;i<lanes;i++){
+        const x = roadX + i*laneWidth;
+        // dashed
+        ctx.setLineDash([30,20]);
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); ctx.setLineDash([]);
+      }
+
+      // roadside lines
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.fillRect(roadX-6,0,6,H); ctx.fillRect(roadX+roadW,0,6,H);
+
+      // draw player car
+      ctx.fillStyle = player.color;
+      const px = player.x; const py = player.y; ctx.fillRect(px,py,player.w,player.h);
+      // wheels
+      ctx.fillStyle = '#0b1220'; ctx.fillRect(px+8,py+player.h-18, player.w-16, 12);
+
+      // draw obstacles
+      obstacles.forEach(o=>{
+        ctx.fillStyle = o.color; ctx.fillRect(o.x,o.y,o.w,o.h);
+        // windows
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(o.x+6,o.y+12,o.w-12, o.h*0.35);
+      });
+
+      // draw coins
+      coins.forEach(c=>{
+        ctx.beginPath(); ctx.fillStyle='gold'; ctx.arc(c.x + c.size/2, c.y + c.size/2, c.size/2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle='#b8860b'; ctx.fillRect(c.x + c.size/2 -2, c.y + c.size/2 -8, 4, 12);
+      });
+
+      // overlay UI subtle
+      ctx.fillStyle = 'rgba(0,0,0,0.06)'; ctx.fillRect(8,8,120,42);
+    }
+
+    // Make crisp for DPR
+    function fixDPR(){ const dpr = window.devicePixelRatio||1; canvas.width = 640 * dpr; canvas.height = 960 * dpr; canvas.style.width = '640px'; canvas.style.height='960px'; ctx.setTransform(dpr,0,0,dpr,0,0); }
+    fixDPR(); window.addEventListener('resize', fixDPR);
+
+    // initial draw
+    render();
+
+    // expose start for keyboard-friendly
+    window.startGame = startGame;
+  </script>
+</body>
+</html>
